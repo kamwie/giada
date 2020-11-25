@@ -11,3 +11,15 @@
 [submodule "src/deps/vst3sdk"]
 	path = src/deps/vst3sdk
 	url = https://github.com/steinbergmedia/vst3sdk.git
+[submodule "src/deps/libsndfile"]
+	path = src/deps/libsndfile
+	url = https://github.com/libsndfile/libsndfile.git
+[submodule "src/deps/fltk"]
+	path = src/deps/fltk
+	url = https://github.com/fltk/fltk.git
+[submodule "src/deps/rtmidi"]
+	path = src/deps/rtmidi
+	url = https://github.com/thestk/rtmidi.git
+[submodule "src/deps/libsamplerate"]
+	path = src/deps/libsamplerate
+	url = https://github.com/libsndfile/libsamplerate.git

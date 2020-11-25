@@ -11,8 +11,6 @@ endif()
 
 project(giada LANGUAGES CXX)
 
-add_executable(giada)
-
 # Define SOURCES list, containing the source files.
 
 list(APPEND SOURCES
@@ -332,28 +330,28 @@ list(APPEND SOURCES
 	src/deps/rtaudio/RtAudio.h             
 	src/deps/rtaudio/RtAudio.cpp)
 
-# Define PREPROCESSOR_DEFS lists, containing preprocessor definitions.
+# Define PREPROCESSOR_DEFS list, containing preprocessor definitions.
 
 list(APPEND PREPROCESSOR_DEFS)
 
-# Define INCLUDE_DIRS, containing include directories (e.g. -I).
+# Define INCLUDE_DIRS list, containing include directories (e.g. -I).
 
 list(APPEND INCLUDE_DIRS 
 	${CMAKE_SOURCE_DIR}
 	${CMAKE_SOURCE_DIR}/src)
 
-# Define COMPILER_OPTIONS lists, additional flags for the compiler.
+# Define COMPILER_OPTIONS list, additional flags for the compiler.
 
 list(APPEND COMPILER_OPTIONS)
 
-# Define LIBRARIES lists, ie. external dependencies to link.
+# Define LIBRARIES list, ie. external dependencies to link.
 
 list(APPEND LIBRARIES)
 
-# Set C++17.
+# Define COMPILER_FEATURES list (e.g. C++17).
 
-target_compile_features(giada PRIVATE cxx_std_17)
-	
+list(APPEND COMPILER_FEATURES cxx_std_17)
+
 # Enable compiler warnings. 
 
 if(CMAKE_SYSTEM_NAME STREQUAL "Windows")
@@ -367,11 +365,11 @@ endif()
 option(WITH_VST2 "Enable VST2 support." OFF)
 option(WITH_VST3 "Enable VST3 support." OFF)
 option(WITH_TESTS "Include the test suite." OFF)
-option(WITH_SYSTEM_CATCH "Use system-wide Catch (not the submodule dep) (only if WITH_TESTS=ON)." OFF)
+option(WITH_SYSTEM_LIBS "Use system-wide libraries (not the git submodules)." OFF)
 
 if(WITH_TESTS)
 	list(APPEND PREPROCESSOR_DEFS WITH_TESTS)
-	if(NOT WITH_SYSTEM_CATCH)
+	if(NOT WITH_SYSTEM_LIBS)
 		list(APPEND INCLUDE_DIRS ${CMAKE_SOURCE_DIR}/tests/catch2/single_include/catch2)
 	endif()
 endif()
@@ -380,50 +378,98 @@ if(NOT CMAKE_BUILD_TYPE STREQUAL "Debug")
 	list(APPEND PREPROCESSOR_DEFS NDEBUG)	
 endif()
 
-# Find required dependencies. Some don't support the find_package() command: 
-# just fallback to find_library().
+# When WITH_SYSTEM_LIBS = ON we have to look for required dependencies. Some 
+# don't support the find_package() command: just fallback to find_library().
 
-set(FLTK_SKIP_FLUID TRUE) # Don't search for FLTK's fluid
-set(FLTK_SKIP_OPENGL TRUE) # Don't search for FLTK's OpenGL
-find_package(Threads REQUIRED)
-find_package(FLTK REQUIRED)
-find_library(LIBRARY_RTMIDI NAMES rtmidi REQUIRED)
-find_library(LIBRARY_SNDFILE NAMES sndfile libsndfile libsndfile-1 REQUIRED)
-find_library(LIBRARY_SAMPLERATE NAMES samplerate libsamplerate libsamplerate-0 REQUIRED)
+if (WITH_SYSTEM_LIBS)
 
-# Find optional dependencies.
+	set(FLTK_SKIP_FLUID TRUE) # Don't search for FLTK's fluid
+	set(FLTK_SKIP_OPENGL TRUE) # Don't search for FLTK's OpenGL
+	find_package(Threads REQUIRED)
+	find_package(FLTK REQUIRED)
+	find_library(LIBRARY_RTMIDI NAMES rtmidi REQUIRED)
+	find_library(LIBRARY_SNDFILE NAMES sndfile libsndfile libsndfile-1 REQUIRED)
+	find_library(LIBRARY_SAMPLERATE NAMES samplerate libsamplerate libsamplerate-0 REQUIRED)
 
-find_library(LIBRARY_FLAC NAMES flac FLAC)
-find_library(LIBRARY_OGG NAMES ogg)
-find_library(LIBRARY_OPUS NAMES opus libopus)
-find_library(LIBRARY_VORBIS NAMES vorbis)
-find_library(LIBRARY_VORBISENC NAMES vorbisenc)
+	# Find optional dependencies.
 
-list(APPEND LIBRARIES 
-	${Threads_LIBRARY} ${FLTK_LIBRARY} ${LIBRARY_RTMIDI} ${LIBRARY_SNDFILE} 
-	${LIBRARY_SAMPLERATE})
-if(LIBRARY_FLAC)
-	list(APPEND LIBRARIES ${LIBRARY_FLAC})
+	find_library(LIBRARY_FLAC NAMES flac FLAC)
+	find_library(LIBRARY_OGG NAMES ogg)
+	find_library(LIBRARY_OPUS NAMES opus libopus)
+	find_library(LIBRARY_VORBIS NAMES vorbis)
+	find_library(LIBRARY_VORBISENC NAMES vorbisenc)
+
+	list(APPEND LIBRARIES 
+		${Threads_LIBRARY} ${FLTK_LIBRARY} ${LIBRARY_RTMIDI} ${LIBRARY_SNDFILE} 
+		${LIBRARY_SAMPLERATE})
+	if(LIBRARY_FLAC)
+		list(APPEND LIBRARIES ${LIBRARY_FLAC})
+	endif()
+	if(LIBRARY_OGG)
+		list(APPEND LIBRARIES ${LIBRARY_OGG})
+	endif()
+	if(LIBRARY_OPUS)
+		list(APPEND LIBRARIES ${LIBRARY_OPUS})
+	endif()
+	if(LIBRARY_VORBIS)
+		list(APPEND LIBRARIES ${LIBRARY_VORBIS})
+	endif()
+	if(LIBRARY_VORBISENC)
+		list(APPEND LIBRARIES ${LIBRARY_VORBISENC})
+	endif()
+
+	# RtMidi header path may vary accross OSes, so a fix is needed. 
+	# TODO - Find a way to avoid this additional step
+
+	find_path(LIBRARY_RTMIDI_INCLUDE_DIR RtMidi.h PATH_SUFFIXES rtmidi)
+	list(APPEND INCLUDE_DIRS ${LIBRARY_RTMIDI_INCLUDE_DIR})
+
+else()
+
+	include(ExternalProject)
+
+	ExternalProject_Add(
+		rtmidi
+		SOURCE_DIR ${CMAKE_SOURCE_DIR}/src/deps/rtmidi
+		INSTALL_COMMAND ""
+		CMAKE_ARGS "-DBUILD_TESTING=OFF" "-DBUILD_SHARED_LIBS=OFF")
+	ExternalProject_Get_Property(rtmidi BINARY_DIR)
+	ExternalProject_Get_Property(rtmidi SOURCE_DIR)
+	list(APPEND LIBRARIES ${BINARY_DIR}/librtmidi${CMAKE_STATIC_LIBRARY_SUFFIX})
+	list(APPEND INCLUDE_DIRS ${SOURCE_DIR})
+
+	ExternalProject_Add(
+		libsndfile
+		SOURCE_DIR ${CMAKE_SOURCE_DIR}/src/deps/libsndfile
+		INSTALL_COMMAND ""
+		CMAKE_ARGS "-DBUILD_TESTING=OFF" "-DBUILD_PROGRAMS=OFF" "-DBUILD_EXAMPLES=OFF")
+	ExternalProject_Get_Property(libsndfile BINARY_DIR)
+	ExternalProject_Get_Property(libsndfile SOURCE_DIR)
+	list(APPEND LIBRARIES ${BINARY_DIR}/libsndfile${CMAKE_STATIC_LIBRARY_SUFFIX})
+	list(APPEND INCLUDE_DIRS ${SOURCE_DIR})
+
+	ExternalProject_Add(
+		libsamplerate
+		SOURCE_DIR ${CMAKE_SOURCE_DIR}/src/deps/libsamplerate
+		INSTALL_COMMAND ""
+		CMAKE_ARGS "-DBUILD_TESTING=OFF" "-DLIBSAMPLERATE_EXAMPLES=OFF")
+	ExternalProject_Get_Property(libsamplerate BINARY_DIR)
+	ExternalProject_Get_Property(libsamplerate SOURCE_DIR)
+	list(APPEND LIBRARIES ${BINARY_DIR}/libsamplerate${CMAKE_STATIC_LIBRARY_SUFFIX})
+	list(APPEND INCLUDE_DIRS ${SOURCE_DIR})
+
+	ExternalProject_Add(
+		fltk
+		SOURCE_DIR ${CMAKE_SOURCE_DIR}/src/deps/fltk
+		INSTALL_COMMAND ""
+		CMAKE_ARGS "-DFLTK_BUILD_TEST=OFF" "-DOPTION_BUILD_EXAMPLES=OFF")
+	ExternalProject_Get_Property(fltk BINARY_DIR)
+	ExternalProject_Get_Property(fltk SOURCE_DIR)
+	list(APPEND LIBRARIES ${BINARY_DIR}/lib/libfltk${CMAKE_STATIC_LIBRARY_SUFFIX})
+	list(APPEND INCLUDE_DIRS ${SOURCE_DIR}/FL)
+
 endif()
-if(LIBRARY_OGG)
-	list(APPEND LIBRARIES ${LIBRARY_OGG})
-endif()
-if(LIBRARY_OPUS)
-	list(APPEND LIBRARIES ${LIBRARY_OPUS})
-endif()
-if(LIBRARY_VORBIS)
-	list(APPEND LIBRARIES ${LIBRARY_VORBIS})
-endif()
-if(LIBRARY_VORBISENC)
-	list(APPEND LIBRARIES ${LIBRARY_VORBISENC})
-endif()
 
-# RtMidi header path may vary accross OSes, so a fix is needed. 
-# TODO - Find a way to avoid this additional step
-
-find_path(LIBRARY_RTMIDI_INCLUDE_DIR RtMidi.h PATH_SUFFIXES rtmidi)
-list(APPEND INCLUDE_DIRS ${LIBRARY_RTMIDI_INCLUDE_DIR})
- 
 # Conditional checks for different platforms.
 
 if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
@@ -449,6 +495,7 @@ elseif(CMAKE_SYSTEM_NAME STREQUAL "Windows")
 
 	# Enable static linking of the MSVC runtime library. 
 	
+	# TODO won't work, target not yet defined. Use new list
 	set_target_properties(giada PROPERTIES 
 		MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
 
@@ -476,6 +523,7 @@ elseif(CMAKE_SYSTEM_NAME STREQUAL "Windows")
 
 elseif(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
 
+	# TODO - doesn't this clash with the instruction on top?? 
 	list(APPEND COMPILER_OPTIONS -mmacosx-version-min=10.15)
 
 	find_library(CORE_AUDIO_LIBRARY CoreAudio REQUIRED)
@@ -570,6 +618,8 @@ endif()
 
 # Finalize 'giada' target (main executable).
 
+add_executable(giada)
+target_compile_features(giada PRIVATE ${COMPILER_FEATURES})
 target_sources(giada PRIVATE ${SOURCES})
 target_compile_definitions(giada PRIVATE ${PREPROCESSOR_DEFS})
 target_include_directories(giada PRIVATE ${INCLUDE_DIRS})
