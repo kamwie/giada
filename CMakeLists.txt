@@ -446,7 +446,7 @@ else()
 	ExternalProject_Get_Property(libsndfile BINARY_DIR)
 	ExternalProject_Get_Property(libsndfile SOURCE_DIR)
 	list(APPEND LIBRARIES ${BINARY_DIR}/libsndfile${CMAKE_STATIC_LIBRARY_SUFFIX})
-	list(APPEND INCLUDE_DIRS ${SOURCE_DIR})
+	list(APPEND INCLUDE_DIRS ${BINARY_DIR}/include)
 
 	ExternalProject_Add(
 		libsamplerate
