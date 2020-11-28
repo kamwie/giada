@@ -352,6 +352,10 @@ list(APPEND LIBRARIES)
 
 list(APPEND COMPILER_FEATURES cxx_std_17)
 
+# Define TARGET_PROPERTIES, additional properties for the target 'giada'. 
+
+list(APPEND TARGET_PROPERTIES)
+
 # Enable compiler warnings. 
 
 if(CMAKE_SYSTEM_NAME STREQUAL "Windows")
@@ -495,9 +499,9 @@ elseif(CMAKE_SYSTEM_NAME STREQUAL "Windows")
 
 	# Enable static linking of the MSVC runtime library. 
 	
-	# TODO won't work, target not yet defined. Use new list
-	set_target_properties(giada PROPERTIES 
-		MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
+	set(prop MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
+	string(REPLACE ";" " " prop_str "${prop}") # TODO this sucks
+	list(APPEND TARGET_PROPERTIES ${prop_str})
 
 	list(APPEND LIBRARIES dsound)
 
@@ -625,3 +629,6 @@ target_compile_definitions(giada PRIVATE ${PREPROCESSOR_DEFS})
 target_include_directories(giada PRIVATE ${INCLUDE_DIRS})
 target_link_libraries(giada PRIVATE ${LIBRARIES})
 target_compile_options(giada PRIVATE ${COMPILER_OPTIONS})
+if (NOT ${TARGET_PROPERTIES} STREQUAL "")
+	set_target_properties(giada PROPERTIES ${TARGET_PROPERTIES})
+endif()
