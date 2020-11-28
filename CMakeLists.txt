@@ -497,12 +497,6 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
 
 elseif(CMAKE_SYSTEM_NAME STREQUAL "Windows")
 
-	# Enable static linking of the MSVC runtime library. 
-	
-	set(prop MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
-	string(REPLACE ";" " " prop_str "${prop}") # TODO this sucks 
-	list(APPEND TARGET_PROPERTIES ${prop_str})
-
 	list(APPEND LIBRARIES dsound)
 
 	list(APPEND SOURCES
@@ -629,6 +623,11 @@ target_compile_definitions(giada PRIVATE ${PREPROCESSOR_DEFS})
 target_include_directories(giada PRIVATE ${INCLUDE_DIRS})
 target_link_libraries(giada PRIVATE ${LIBRARIES})
 target_compile_options(giada PRIVATE ${COMPILER_OPTIONS})
-if (NOT ${TARGET_PROPERTIES} STREQUAL "")
-	set_target_properties(giada PROPERTIES ${TARGET_PROPERTIES})
+
+# Enable static linking of the MSVC runtime library on Windows
+# TODO - move this into the 'if windows' conditional (needs smarter list)
+
+if(CMAKE_SYSTEM_NAME STREQUAL "Windows")
+	set_target_properties(giada PROPERTIES
+		MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
 endif()
