@@ -500,7 +500,7 @@ elseif(CMAKE_SYSTEM_NAME STREQUAL "Windows")
 	# Enable static linking of the MSVC runtime library. 
 	
 	set(prop MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
-	string(REPLACE ";" " " prop_str "${prop}") # TODO this sucks
+	string(REPLACE ";" " " prop_str "${prop}") # TODO this sucks 
 	list(APPEND TARGET_PROPERTIES ${prop_str})
 
 	list(APPEND LIBRARIES dsound)
