@@ -23,3 +23,6 @@
 [submodule "src/deps/libsamplerate"]
 	path = src/deps/libsamplerate
 	url = https://github.com/libsndfile/libsamplerate.git
+[submodule "src/deps/rtaudio"]
+	path = src/deps/rtaudio
+	url = https://github.com/monocasual/rtaudio.git

@@ -1,3 +1,7 @@
+# ------------------------------------------------------------------------------
+# Preliminary setup
+# ------------------------------------------------------------------------------
+
 cmake_minimum_required(VERSION 3.12)
 
 # CMAKE_OSX_DEPLOYMENT_TARGET should be set prior to the first project() or 
@@ -9,9 +13,23 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
 	set(CMAKE_OSX_DEPLOYMENT_TARGET "10.14" CACHE STRING "Minimum OS X deployment version")
 endif()
 
+# ------------------------------------------------------------------------------
+# Project
+# ------------------------------------------------------------------------------
+
 project(giada LANGUAGES CXX)
 
-# Define SOURCES list, containing the source files.
+# ------------------------------------------------------------------------------
+# Lists definition
+# 
+# SOURCES - contains the source files
+# PREPROCESSOR_DEFS - preprocessor definitions
+# INCLUDE_DIRS - include directories (e.g. -I)
+# COMPILER_OPTIONS - additional flags for the compiler
+# LIBRARIES - external dependencies to link
+# COMPILER_FEATURES - e.g. C++17
+# TARGET_PROPERTIES - additional properties for the target 'giada'. 
+# ------------------------------------------------------------------------------
 
 list(APPEND SOURCES
 	src/main.cpp
@@ -330,33 +348,18 @@ list(APPEND SOURCES
 	src/deps/rtaudio/RtAudio.h             
 	src/deps/rtaudio/RtAudio.cpp)
 
-# Define PREPROCESSOR_DEFS list, containing preprocessor definitions.
-
 list(APPEND PREPROCESSOR_DEFS)
-
-# Define INCLUDE_DIRS list, containing include directories (e.g. -I).
-
 list(APPEND INCLUDE_DIRS 
 	${CMAKE_SOURCE_DIR}
 	${CMAKE_SOURCE_DIR}/src)
-
-# Define COMPILER_OPTIONS list, additional flags for the compiler.
-
 list(APPEND COMPILER_OPTIONS)
-
-# Define LIBRARIES list, ie. external dependencies to link.
-
 list(APPEND LIBRARIES)
-
-# Define COMPILER_FEATURES list (e.g. C++17).
-
 list(APPEND COMPILER_FEATURES cxx_std_17)
-
-# Define TARGET_PROPERTIES, additional properties for the target 'giada'. 
-
 list(APPEND TARGET_PROPERTIES)
 
-# Enable compiler warnings. 
+# ------------------------------------------------------------------------------
+# Compiler warnings
+# ------------------------------------------------------------------------------
 
 if(CMAKE_SYSTEM_NAME STREQUAL "Windows")
 	list(APPEND COMPILER_OPTIONS /W4)
@@ -364,7 +367,9 @@ else()
 	list(APPEND COMPILER_OPTIONS -Wall -Wextra -Wpedantic)
 endif()
 
-# Set CMake options.
+# ------------------------------------------------------------------------------
+# Options
+# ------------------------------------------------------------------------------
 
 option(WITH_VST2 "Enable VST2 support." OFF)
 option(WITH_VST3 "Enable VST3 support." OFF)
@@ -382,10 +387,16 @@ if(NOT CMAKE_BUILD_TYPE STREQUAL "Debug")
 	list(APPEND PREPROCESSOR_DEFS NDEBUG)	
 endif()
 
-# When WITH_SYSTEM_LIBS = ON we have to look for required dependencies. Some 
-# don't support the find_package() command: just fallback to find_library().
+# ------------------------------------------------------------------------------
+# Dependencies
+# ------------------------------------------------------------------------------
+
+add_subdirectory(${CMAKE_SOURCE_DIR}/src/deps/rtaudio)
 
 if (WITH_SYSTEM_LIBS)
+
+	# When WITH_SYSTEM_LIBS = ON we have to look for required dependencies. Some 
+	# don't support the find_package() command: just fallback to find_library().
 
 	set(FLTK_SKIP_FLUID TRUE) # Don't search for FLTK's fluid
 	set(FLTK_SKIP_OPENGL TRUE) # Don't search for FLTK's OpenGL
@@ -474,7 +485,9 @@ else()
 
 endif()
 
+# ------------------------------------------------------------------------------
 # Conditional checks for different platforms.
+# ------------------------------------------------------------------------------
 
 if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
 
@@ -568,7 +581,9 @@ elseif (CMAKE_SYSTEM_NAME STREQUAL "FreeBSD")
 
 endif()
 
-# Define extra parameters if compiled with VST.
+# ------------------------------------------------------------------------------
+# Extra parameters if compiled with VST.
+# ------------------------------------------------------------------------------
 
 if(WITH_VST2 OR WITH_VST3)
 
@@ -614,7 +629,9 @@ if(WITH_VST2 OR WITH_VST3)
 
 endif()
 
+# ------------------------------------------------------------------------------
 # Finalize 'giada' target (main executable).
+# ------------------------------------------------------------------------------
 
 add_executable(giada)
 target_compile_features(giada PRIVATE ${COMPILER_FEATURES})
@@ -624,8 +641,12 @@ target_include_directories(giada PRIVATE ${INCLUDE_DIRS})
 target_link_libraries(giada PRIVATE ${LIBRARIES})
 target_compile_options(giada PRIVATE ${COMPILER_OPTIONS})
 
+# ------------------------------------------------------------------------------
+# Extra
+# ------------------------------------------------------------------------------
+
 # Enable static linking of the MSVC runtime library on Windows
-# TODO - move this into the 'if windows' conditional (needs smarter list)
+# TODO - move this into the 'if windows' conditional (needs smarter list first)
 
 if(CMAKE_SYSTEM_NAME STREQUAL "Windows")
 	set_target_properties(giada PROPERTIES
