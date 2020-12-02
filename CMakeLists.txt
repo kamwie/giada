@@ -374,11 +374,15 @@ endif()
 option(WITH_VST2 "Enable VST2 support." OFF)
 option(WITH_VST3 "Enable VST3 support." OFF)
 option(WITH_TESTS "Include the test suite." OFF)
-option(WITH_SYSTEM_LIBS "Use system-wide libraries (not the git submodules)." OFF)
+option(WITH_SYSTEM_RTMIDI "Use system-wide RtMidi (not the git submodule)." OFF)
+option(WITH_SYSTEM_FLTK "Use system-wide FLTK (not the git submodule)." OFF)
+option(WITH_SYSTEM_LIBSNDFILE "Use system-wide Libsndfile (not the git submodule)." OFF)
+option(WITH_SYSTEM_LIBSAMPLERATE "Use system-wide Libsamplerate (not the git submodule)." OFF)
+option(WITH_SYSTEM_CATCH "Use system-wide Catch (not the git submodule)." OFF)
 
 if(WITH_TESTS)
 	list(APPEND PREPROCESSOR_DEFS WITH_TESTS)
-	if(NOT WITH_SYSTEM_LIBS)
+	if(NOT WITH_SYSTEM_CATCH)
 		list(APPEND INCLUDE_DIRS ${CMAKE_SOURCE_DIR}/tests/catch2/single_include/catch2)
 	endif()
 endif()
@@ -391,20 +395,63 @@ endif()
 # Dependencies
 # ------------------------------------------------------------------------------
 
+include(ExternalProject)
+
 add_subdirectory(${CMAKE_SOURCE_DIR}/src/deps/rtaudio)
 
-if (WITH_SYSTEM_LIBS)
+find_package(Threads REQUIRED)
+list(APPEND LIBRARIES ${Threads_LIBRARY})
 
-	# When WITH_SYSTEM_LIBS = ON we have to look for required dependencies. Some 
-	# don't support the find_package() command: just fallback to find_library().
+if(WITH_SYSTEM_RTMIDI)
 
-	set(FLTK_SKIP_FLUID TRUE) # Don't search for FLTK's fluid
-	set(FLTK_SKIP_OPENGL TRUE) # Don't search for FLTK's OpenGL
-	find_package(Threads REQUIRED)
-	find_package(FLTK REQUIRED)
 	find_library(LIBRARY_RTMIDI NAMES rtmidi REQUIRED)
+	list(APPEND LIBRARIES ${LIBRARY_RTMIDI})
+
+	# RtMidi header path may vary accross OSes, so a fix is needed. 
+	# TODO - Find a way to avoid this additional step
+
+	find_path(LIBRARY_RTMIDI_INCLUDE_DIR RtMidi.h PATH_SUFFIXES rtmidi)
+	list(APPEND INCLUDE_DIRS ${LIBRARY_RTMIDI_INCLUDE_DIR})
+
+else()
+
+	ExternalProject_Add(
+		rtmidi
+		SOURCE_DIR ${CMAKE_SOURCE_DIR}/src/deps/rtmidi
+		INSTALL_COMMAND ""
+		CMAKE_ARGS "-DBUILD_TESTING=OFF" "-DBUILD_SHARED_LIBS=OFF")
+	ExternalProject_Get_Property(rtmidi BINARY_DIR)
+	ExternalProject_Get_Property(rtmidi SOURCE_DIR)
+	list(APPEND LIBRARIES ${BINARY_DIR}/librtmidi${CMAKE_STATIC_LIBRARY_SUFFIX})
+	list(APPEND INCLUDE_DIRS ${SOURCE_DIR})
+
+endif()
+
+if(WITH_SYSTEM_FLTK)
+
+	set(FLTK_SKIP_FLUID TRUE)  # Don't search for FLTK's fluid
+	set(FLTK_SKIP_OPENGL TRUE) # Don't search for FLTK's OpenGL
+	find_package(FLTK REQUIRED)
+	list(APPEND LIBRARIES ${FLTK_LIBRARY})
+
+else()
+
+	ExternalProject_Add(
+		fltk
+		SOURCE_DIR ${CMAKE_SOURCE_DIR}/src/deps/fltk
+		INSTALL_COMMAND ""
+		CMAKE_ARGS "-DFLTK_BUILD_TEST=OFF" "-DOPTION_BUILD_EXAMPLES=OFF")
+	ExternalProject_Get_Property(fltk BINARY_DIR)
+	ExternalProject_Get_Property(fltk SOURCE_DIR)
+	list(APPEND LIBRARIES ${BINARY_DIR}/lib/libfltk${CMAKE_STATIC_LIBRARY_SUFFIX})
+	list(APPEND INCLUDE_DIRS ${SOURCE_DIR}/FL)
+
+endif()
+
+if (WITH_SYSTEM_LIBSNDFILE)
+
 	find_library(LIBRARY_SNDFILE NAMES sndfile libsndfile libsndfile-1 REQUIRED)
-	find_library(LIBRARY_SAMPLERATE NAMES samplerate libsamplerate libsamplerate-0 REQUIRED)
+	list(APPEND LIBRARIES ${LIBRARY_SNDFILE})
 
 	# Find optional dependencies.
 
@@ -414,9 +461,6 @@ if (WITH_SYSTEM_LIBS)
 	find_library(LIBRARY_VORBIS NAMES vorbis)
 	find_library(LIBRARY_VORBISENC NAMES vorbisenc)
 
-	list(APPEND LIBRARIES 
-		${Threads_LIBRARY} ${FLTK_LIBRARY} ${LIBRARY_RTMIDI} ${LIBRARY_SNDFILE} 
-		${LIBRARY_SAMPLERATE})
 	if(LIBRARY_FLAC)
 		list(APPEND LIBRARIES ${LIBRARY_FLAC})
 	endif()
@@ -433,25 +477,7 @@ if (WITH_SYSTEM_LIBS)
 		list(APPEND LIBRARIES ${LIBRARY_VORBISENC})
 	endif()
 
-	# RtMidi header path may vary accross OSes, so a fix is needed. 
-	# TODO - Find a way to avoid this additional step
-
-	find_path(LIBRARY_RTMIDI_INCLUDE_DIR RtMidi.h PATH_SUFFIXES rtmidi)
-	list(APPEND INCLUDE_DIRS ${LIBRARY_RTMIDI_INCLUDE_DIR})
-
 else()
-
-	include(ExternalProject)
-
-	ExternalProject_Add(
-		rtmidi
-		SOURCE_DIR ${CMAKE_SOURCE_DIR}/src/deps/rtmidi
-		INSTALL_COMMAND ""
-		CMAKE_ARGS "-DBUILD_TESTING=OFF" "-DBUILD_SHARED_LIBS=OFF")
-	ExternalProject_Get_Property(rtmidi BINARY_DIR)
-	ExternalProject_Get_Property(rtmidi SOURCE_DIR)
-	list(APPEND LIBRARIES ${BINARY_DIR}/librtmidi${CMAKE_STATIC_LIBRARY_SUFFIX})
-	list(APPEND INCLUDE_DIRS ${SOURCE_DIR})
 
 	ExternalProject_Add(
 		libsndfile
@@ -463,6 +489,15 @@ else()
 	list(APPEND LIBRARIES ${BINARY_DIR}/libsndfile${CMAKE_STATIC_LIBRARY_SUFFIX})
 	list(APPEND INCLUDE_DIRS ${BINARY_DIR}/include)
 
+endif()
+
+if (WITH_SYSTEM_LIBSAMPLERATE)
+
+	find_library(LIBRARY_SAMPLERATE NAMES samplerate libsamplerate libsamplerate-0 REQUIRED)
+	list(APPEND LIBRARIES ${LIBRARY_SAMPLERATE})
+
+else()
+
 	ExternalProject_Add(
 		libsamplerate
 		SOURCE_DIR ${CMAKE_SOURCE_DIR}/src/deps/libsamplerate
@@ -472,16 +507,6 @@ else()
 	ExternalProject_Get_Property(libsamplerate SOURCE_DIR)
 	list(APPEND LIBRARIES ${BINARY_DIR}/libsamplerate${CMAKE_STATIC_LIBRARY_SUFFIX})
 	list(APPEND INCLUDE_DIRS ${SOURCE_DIR})
-
-	ExternalProject_Add(
-		fltk
-		SOURCE_DIR ${CMAKE_SOURCE_DIR}/src/deps/fltk
-		INSTALL_COMMAND ""
-		CMAKE_ARGS "-DFLTK_BUILD_TEST=OFF" "-DOPTION_BUILD_EXAMPLES=OFF")
-	ExternalProject_Get_Property(fltk BINARY_DIR)
-	ExternalProject_Get_Property(fltk SOURCE_DIR)
-	list(APPEND LIBRARIES ${BINARY_DIR}/lib/libfltk${CMAKE_STATIC_LIBRARY_SUFFIX})
-	list(APPEND INCLUDE_DIRS ${SOURCE_DIR}/FL)
 
 endif()
 
